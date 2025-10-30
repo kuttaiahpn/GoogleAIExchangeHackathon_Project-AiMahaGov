@@ -1,0 +1,4 @@
+Flask
+google-cloud-firestore
+google-cloud-aiplatform # For Vertex AI and Gemini
+gunicorn # Production web server for Cloud Run

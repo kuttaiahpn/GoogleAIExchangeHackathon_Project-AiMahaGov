@@ -1,0 +1,5 @@
+.DS_Store
+venv/
+backend/key.json
+__pycache__/
+*.pyc
