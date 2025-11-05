@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citizen Portal - AiMahaGov</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .risk-high { background-color: #fef2f2; border-left: 4px solid #ef4444; }
+        .risk-medium { background-color: #fffbeb; border-left: 4px solid #f59e0b; }
+        .risk-low { background-color: #f0fdf4; border-left: 4px solid #10b981; }
+        .hero { background: white; border-radius: 1rem; padding: 2rem; margin-bottom: 2rem; }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="hero text-center">
+            <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="text-6xl">🇮🇳</span>
+                <h1 class="text-5xl font-extrabold text-gray-800">AiMahaGov</h1>
+            </div>
+            <p class="text-xl text-gray-600 mb-2">महाराष्ट्र सरकार | Maharashtra Government</p>
+            <p class="text-lg text-indigo-600 font-semibold">AI-Powered Citizen Grievance Portal</p>
+            <p class="text-sm text-gray-500 mt-2">Powered by Google Cloud AI • Instant Classification • Real-time Tracking</p>
+        </div>
+
+        <!-- Authentication -->
+        <div class="bg-white rounded-xl card p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">🔐 Citizen Authentication</h2>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <label for="token-input" class="block text-sm font-medium text-gray-700 mb-2">Authentication Token</label>
+                    <input type="password" id="token-input" placeholder="Paste your token here..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 mt-1">Get token: <code class="bg-gray-100 px-1 rounded">gcloud auth print-identity-token</code></p>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Service Status</label>
+                    <div id="auth-status" class="p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm">
+                        ⚠️ Please enter your token above
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Submission Form -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Left: Submit Form -->
+            <div class="bg-white p-6 rounded-xl card">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">📝 Submit Your Grievance</h2>
+                <p class="text-sm text-gray-600 mb-4">Describe your issue in detail. Our AI will automatically classify it and assign priority.</p>
+                
+                <textarea id="grievance-text" rows="8" 
+                          class="w-full p-4 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 mb-4"
+                          placeholder="Example: No water supply in our village for 2 weeks. Villagers are facing severe hardship..."></textarea>
+                
+                <button id="submit-btn" 
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <span class="flex items-center justify-center">
+                        <svg id="submit-spinner" class="animate-spin h-5 w-5 mr-3 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span id="submit-text">🚀 Submit Grievance</span>
+                    </span>
+                </button>
+
+                <div id="status-message" class="mt-4 p-4 rounded-lg hidden"></div>
+            </div>
+
+            <!-- Right: Result Display -->
+            <div id="result-card" class="bg-white p-6 rounded-xl card hidden">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">✅ Submission Successful!</h2>
+                
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                    <p class="text-green-800 font-semibold">Your grievance has been logged and classified by AI</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="border-b pb-3">
+                        <p class="text-sm text-gray-600">Tracking Token ID</p>
+                        <p id="result-token" class="text-lg font-mono bg-gray-100 px-3 py-2 rounded mt-1"></p>
+                    </div>
+
+                    <div class="border-b pb-3">
+                        <p class="text-sm text-gray-600">Assigned Department</p>
+                        <p id="result-dept" class="text-xl font-bold text-indigo-600 mt-1"></p>
+                    </div>
+
+                    <div class="border-b pb-3">
+                        <p class="text-sm text-gray-600">Priority Risk Score</p>
+                        <p id="result-risk" class="text-3xl font-bold mt-1"></p>
+                    </div>
+
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <p class="text-sm text-blue-900 font-semibold mb-2">🤖 AI Recommended Action:</p>
+                        <p id="result-action" class="text-blue-800 italic"></p>
+                    </div>
+
+                    <button onclick="submitAnother()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition">
+                        Submit Another Grievance
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Previous Submissions Dashboard -->
+        <div class="bg-white p-6 rounded-xl card">
+            <div class="flex justify-between items-center mb-5 border-b pb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">📊 Your Submitted Grievances</h2>
+                <button id="refresh-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition shadow-md disabled:bg-gray-400">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Refresh List
+                    </span>
+                </button>
+            </div>
+            
+            <div id="grievances-list" class="space-y-4">
+                <p class="text-gray-500 text-center py-8" id="list-status">Click "Refresh List" to load your previous submissions</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center mt-8 text-white text-sm">
+            <p>© 2025 Maharashtra Government | Built with Google Cloud Platform</p>
+        </footer>
+    </div>
+
+    <script>
+        const SERVICE_URL = 'https://grievance-api-service-66086599669.asia-south1.run.app';
+        const tokenInput = document.getElementById('token-input');
+        const authStatus = document.getElementById('auth-status');
+        const submitBtn = document.getElementById('submit-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const grievanceText = document.getElementById('grievance-text');
+        const statusMessage = document.getElementById('status-message');
+        const resultCard = document.getElementById('result-card');
+        const grievancesList = document.getElementById('grievances-list');
+        const listStatus = document.getElementById('list-status');
+
+        let authToken = '';
+        let allGrievances = [];
+
+        // ========== UTILITY FUNCTIONS ==========
+
+        function updateAuthStatus() {
+            authToken = tokenInput.value.trim();
+            
+            if (authToken.length > 50) {
+                authStatus.className = 'p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm';
+                authStatus.innerHTML = '✅ Authenticated. Ready to submit.';
+                submitBtn.disabled = false;
+                refreshBtn.disabled = false;
+            } else {
+                authStatus.className = 'p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm';
+                authStatus.innerHTML = '⚠️ Please enter your token above';
+                submitBtn.disabled = true;
+                refreshBtn.disabled = true;
+            }
+        }
+
+        function showMessage(type, text) {
+            statusMessage.className = `mt-4 p-4 rounded-lg block ${
+                type === 'success' ? 'bg-green-100 text-green-800' : 
+                type === 'error' ? 'bg-red-100 text-red-800' : 
+                'bg-blue-100 text-blue-800'
+            }`;
+            statusMessage.textContent = text;
+            statusMessage.classList.remove('hidden');
+        }
+
+        function getRiskColor(score) {
+            score = parseInt(score);
+            if (score >= 4) return 'text-red-600';
+            if (score >= 2) return 'text-yellow-600';
+            return 'text-green-600';
+        }
+
+        function getRiskClass(score) {
+            score = parseInt(score);
+            if (score >= 4) return 'risk-high';
+            if (score >= 2) return 'risk-medium';
+            return 'risk-low';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // ========== SUBMIT GRIEVANCE ==========
+
+        async function submitGrievance() {
+            const text = grievanceText.value.trim();
+            
+            if (!text || text.length < 10) {
+                showMessage('error', 'Please enter at least 10 characters describing your grievance.');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            document.getElementById('submit-spinner').classList.remove('hidden');
+            document.getElementById('submit-text').textContent = 'Processing with AI...';
+            showMessage('info', 'Submitting your grievance to AI classification system...');
+            resultCard.classList.add('hidden');
+
+            try {
+                const response = await fetch(`${SERVICE_URL}/classify`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                // Display results
+                document.getElementById('result-token').textContent = result.token_id;
+                document.getElementById('result-dept').textContent = result.department;
+                document.getElementById('result-risk').textContent = `${result.risk_score}/5`;
+                document.getElementById('result-risk').className = `text-3xl font-bold mt-1 ${getRiskColor(result.risk_score)}`;
+                document.getElementById('result-action').textContent = result.ai_suggested_action;
+
+                resultCard.classList.remove('hidden');
+                showMessage('success', '✅ Success! Your grievance has been submitted and classified.');
+                grievanceText.value = '';
+
+                // Auto-refresh list
+                setTimeout(() => fetchGrievances(), 1000);
+
+            } catch (error) {
+                showMessage('error', `❌ Submission failed: ${error.message}`);
+                console.error('Submit error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                document.getElementById('submit-spinner').classList.add('hidden');
+                document.getElementById('submit-text').textContent = '🚀 Submit Grievance';
+            }
+        }
+
+        function submitAnother() {
+            resultCard.classList.add('hidden');
+            grievanceText.focus();
+        }
+
+        // ========== FETCH GRIEVANCES ==========
+
+        async function fetchGrievances() {
+            if (!authToken) return;
+
+            listStatus.textContent = '⏳ Loading your grievances...';
+            listStatus.classList.remove('hidden');
+            grievancesList.innerHTML = '';
+
+            try {
+                const response = await fetch(`${SERVICE_URL}/grievances`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+                allGrievances = await response.json();
+
+                if (allGrievances.length === 0) {
+                    listStatus.textContent = '📭 No grievances submitted yet. Submit your first one above!';
+                    return;
+                }
+
+                listStatus.classList.add('hidden');
+                renderGrievances();
+
+            } catch (error) {
+                listStatus.textContent = `❌ Error loading: ${error.message}`;
+                console.error('Fetch error:', error);
+            }
+        }
+
+        function renderGrievances() {
+            grievancesList.innerHTML = '';
+
+            // Sort by newest first
+            const sorted = [...allGrievances].sort((a, b) => {
+                const timeA = new Date(a.created_at || a.timestamp || 0).getTime();
+                const timeB = new Date(b.created_at || b.timestamp || 0).getTime();
+                return timeB - timeA;
+            });
+
+            sorted.forEach(g => {
+                const riskScore = parseInt(g.risk_score || 1);
+                const riskClass = getRiskClass(riskScore);
+                const riskColor = getRiskColor(riskScore);
+                const status = g.status || 'Pending Review';
+                const timestamp = g.created_at || g.timestamp;
+                const dateStr = timestamp ? new Date(timestamp).toLocaleString('en-IN') : 'N/A';
+
+                const statusColor = status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                  status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-yellow-100 text-yellow-800';
+
+                const item = document.createElement('div');
+                item.className = `p-5 rounded-xl ${riskClass} transition hover:shadow-xl`;
+                item.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-sm text-gray-600">📅 ${escapeHtml(dateStr)}</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusColor}">${escapeHtml(status)}</span>
+                    </div>
+
+                    <p class="text-gray-900 font-semibold mb-3">${escapeHtml(g.grievance_text || 'N/A')}</p>
+
+                    <div class="grid grid-cols-2 gap-3 text-sm mb-3 border-t pt-3">
+                        <div>
+                            <span class="text-gray-600 block">Token ID</span>
+                            <span class="font-mono text-xs bg-white px-2 py-1 rounded">${escapeHtml(g.token_id || 'N/A')}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 block">Department</span>
+                            <span class="font-bold text-indigo-600">${escapeHtml(g.department || 'N/A')}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 block">Risk Score</span>
+                            <span class="font-bold text-lg ${riskColor}">${riskScore}/5</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 block">Status</span>
+                            <span class="font-semibold">${escapeHtml(status)}</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white bg-opacity-50 p-3 rounded">
+                        <p class="text-xs text-gray-600 mb-1">AI Action:</p>
+                        <p class="text-sm italic text-gray-700">${escapeHtml(g.ai_suggested_action || 'N/A')}</p>
+                    </div>
+                `;
+                grievancesList.appendChild(item);
+            });
+        }
+
+        // ========== EVENT LISTENERS ==========
+
+        tokenInput.addEventListener('input', updateAuthStatus);
+        submitBtn.addEventListener('click', submitGrievance);
+        refreshBtn.addEventListener('click', fetchGrievances);
+
+        grievanceText.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey && !submitBtn.disabled) {
+                submitGrievance();
+            }
+        });
+
+        // Initialize
+        updateAuthStatus();
+    </script>
+</body>
+</html>

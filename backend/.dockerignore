@@ -1,0 +1,18 @@
+# Ignore Python build/cache files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore the local virtual environment
+venv
+env
+.ipynb_checkpoints
+
+# Ignore sensitive files (CRITICAL)
+key.json
+
+# Ignore temporary/metadata files
+.vscode
+.git
+.gitignore

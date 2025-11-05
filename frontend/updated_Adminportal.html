@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - AiMahaGov</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .card { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .risk-high { background-color: #fef2f2; border-left: 4px solid #ef4444; }
+        .risk-medium { background-color: #fffbeb; border-left: 4px solid #f59e0b; }
+        .risk-low { background-color: #f0fdf4; border-left: 4px solid #10b981; }
+        .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-pending { background-color: #fef3c7; color: #92400e; }
+        .badge-progress { background-color: #dbeafe; color: #1e40af; }
+        .badge-resolved { background-color: #d1fae5; color: #065f46; }
+        .badge-rejected { background-color: #fee2e2; color: #991b1b; }
+        .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .ai-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <div class="bg-white rounded-xl p-6 card">
+                <div class="flex items-center justify-center gap-3 mb-2">
+                    <span class="text-5xl">🏛️</span>
+                    <h1 class="text-4xl font-extrabold text-gray-800">Admin Dashboard</h1>
+                </div>
+                <p class="text-xl text-gray-600">AiMahaGov Grievance Management System</p>
+                <p class="text-sm text-gray-500 mt-1">Maharashtra Government | Powered by Google Cloud AI</p>
+            </div>
+        </header>
+
+        <!-- Authentication -->
+        <div class="bg-white rounded-xl card p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">🔐 Admin Authentication</h2>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <label for="token-input" class="block text-sm font-medium text-gray-700 mb-2">Authentication Token</label>
+                    <input type="password" id="token-input" placeholder="Paste admin token..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-gray-500 mt-1">Run: <code class="bg-gray-100 px-1 rounded">gcloud auth print-identity-token</code></p>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <div id="auth-status" class="p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm">
+                        ⚠️ Enter token above
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div id="stats-section" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 hidden">
+            <div class="bg-white p-6 rounded-xl card text-center hover:shadow-lg transition cursor-pointer">
+                <div class="text-4xl font-bold text-indigo-600" id="stat-total">0</div>
+                <div class="text-sm text-gray-600 mt-2">Total Grievances</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl card text-center hover:shadow-lg transition cursor-pointer">
+                <div class="text-4xl font-bold text-red-600" id="stat-high">0</div>
+                <div class="text-sm text-gray-600 mt-2">High Risk (4-5)</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl card text-center hover:shadow-lg transition cursor-pointer">
+                <div class="text-4xl font-bold text-yellow-600" id="stat-pending">0</div>
+                <div class="text-sm text-gray-600 mt-2">Pending Review</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl card text-center hover:shadow-lg transition cursor-pointer">
+                <div class="text-4xl font-bold text-green-600" id="stat-resolved">0</div>
+                <div class="text-sm text-gray-600 mt-2">Resolved</div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div class="bg-white p-6 rounded-xl card">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-5 border-b pb-4 gap-4">
+                <h2 class="text-2xl font-semibold text-gray-700">📋 All Grievances</h2>
+                
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Status Filter -->
+                    <select id="status-filter" class="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="all">All Status</option>
+                        <option value="Pending Review">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+
+                    <!-- Risk Filter -->
+                    <select id="risk-filter" class="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="all">All Risk</option>
+                        <option value="high">High (4-5)</option>
+                        <option value="medium">Medium (2-3)</option>
+                        <option value="low">Low (1)</option>
+                    </select>
+                    
+                    <!-- Sort -->
+                    <select id="sort-select" class="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="timestamp">Date (Newest)</option>
+                        <option value="risk_score">Risk (High→Low)</option>
+                        <option value="department">Department</option>
+                    </select>
+                    
+                    <!-- Refresh -->
+                    <button id="refresh-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition disabled:bg-gray-400">
+                        <span class="flex items-center">
+                            <svg id="refresh-icon" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            <span id="refresh-text">Refresh</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="grievances-list" class="space-y-4">
+                <div class="text-center py-10">
+                    <p class="text-gray-500" id="list-status">Enter token and click Refresh</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Update Modal -->
+    <div id="status-modal" class="modal">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full m-4">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">📝 Update Grievance Status</h3>
+            
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p class="text-xs text-gray-600 mb-1">Token ID:</p>
+                <p id="modal-token" class="font-mono text-sm"></p>
+                <p class="text-sm text-gray-700 mt-2 font-semibold" id="modal-grievance"></p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">New Status:</label>
+                <select id="modal-status" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <option value="Pending Review">Pending Review</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Admin Notes (Optional):</label>
+                <textarea id="modal-notes" rows="3" 
+                          class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Add resolution notes, actions taken, etc."></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="modal-save" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                    Save Changes
+                </button>
+                <button id="modal-cancel" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SERVICE_URL = 'https://grievance-api-service-66086599669.asia-south1.run.app';
+        const tokenInput = document.getElementById('token-input');
+        const authStatus = document.getElementById('auth-status');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const grievancesList = document.getElementById('grievances-list');
+        const listStatus = document.getElementById('list-status');
+        const statusFilter = document.getElementById('status-filter');
+        const riskFilter = document.getElementById('risk-filter');
+        const sortSelect = document.getElementById('sort-select');
+        const statsSection = document.getElementById('stats-section');
+        const statusModal = document.getElementById('status-modal');
+        const modalToken = document.getElementById('modal-token');
+        const modalGrievance = document.getElementById('modal-grievance');
+        const modalStatus = document.getElementById('modal-status');
+        const modalNotes = document.getElementById('modal-notes');
+        const modalSave = document.getElementById('modal-save');
+        const modalCancel = document.getElementById('modal-cancel');
+
+        let authToken = '';
+        let allGrievances = [];
+        let currentEditToken = null;
+
+        // ========== UTILITIES ==========
+
+        function updateAuthStatus() {
+            authToken = tokenInput.value.trim();
+            
+            if (authToken.length > 50) {
+                authStatus.className = 'p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm';
+                authStatus.innerHTML = '✅ Authenticated';
+                refreshBtn.disabled = false;
+            } else {
+                authStatus.className = 'p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm';
+                authStatus.innerHTML = '⚠️ Enter token above';
+                refreshBtn.disabled = true;
+            }
+        }
+
+        function getRiskClass(score) {
+            score = parseInt(score) || 1;
+            return score >= 4 ? 'risk-high' : score >= 2 ? 'risk-medium' : 'risk-low';
+        }
+
+        function getRiskColor(score) {
+            score = parseInt(score) || 1;
+            return score >= 4 ? 'text-red-600' : score >= 2 ? 'text-yellow-600' : 'text-green-600';
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'Resolved') return 'badge badge-resolved';
+            if (status === 'In Progress') return 'badge badge-progress';
+            if (status === 'Rejected') return 'badge badge-rejected';
+            return 'badge badge-pending';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // ========== MODAL ==========
+
+        function openModal(tokenId, currentStatus, grievanceText) {
+            currentEditToken = tokenId;
+            modalToken.textContent = tokenId;
+            modalGrievance.textContent = grievanceText.substring(0, 100) + (grievanceText.length > 100 ? '...' : '');
+            modalStatus.value = currentStatus;
+            modalNotes.value = '';
+            statusModal.classList.add('active');
+        }
+
+        function closeModal() {
+            statusModal.classList.remove('active');
+            currentEditToken = null;
+        }
+
+        async function saveStatus() {
+            if (!currentEditToken) return;
+
+            const newStatus = modalStatus.value;
+            const notes = modalNotes.value.trim();
+
+            modalSave.disabled = true;
+            modalSave.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`${SERVICE_URL}/grievances/${currentEditToken}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus, admin_notes: notes })
+                });
+
+                if (!response.ok) throw new Error('Update failed');
+
+                const result = await response.json();
+                
+                // Update local data
+                const g = allGrievances.find(x => x.token_id === currentEditToken);
+                if (g) {
+                    g.status = newStatus;
+                    if (notes) g.admin_notes = notes;
+                }
+
+                renderGrievances();
+                closeModal();
+                showToast('✅ Status updated successfully!');
+
+            } catch (error) {
+                showToast('❌ Failed to update: ' + error.message, 'error');
+            } finally {
+                modalSave.disabled = false;
+                modalSave.textContent = 'Save Changes';
+            }
+        }
+
+        window.openStatusModal = openModal;
+
+        // ========== STATISTICS ==========
+
+        function updateStats() {
+            const total = allGrievances.length;
+            const highRisk = allGrievances.filter(g => parseInt(g.risk_score || 1) >= 4).length;
+            const pending = allGrievances.filter(g => (g.status || 'Pending Review') === 'Pending Review').length;
+            const resolved = allGrievances.filter(g => (g.status || '') === 'Resolved').length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-high').textContent = highRisk;
+            document.getElementById('stat-pending').textContent = pending;
+            document.getElementById('stat-resolved').textContent = resolved;
+
+            statsSection.classList.toggle('hidden', total === 0);
+        }
+
+        // ========== FILTER & SORT ==========
+
+        function filterAndSort() {
+            let filtered = [...allGrievances];
+
+            // Risk filter
+            const riskVal = riskFilter.value;
+            if (riskVal !== 'all') {
+                filtered = filtered.filter(g => {
+                    const score = parseInt(g.risk_score || 1);
+                    if (riskVal === 'high') return score >= 4;
+                    if (riskVal === 'medium') return score >= 2 && score <= 3;
+                    if (riskVal === 'low') return score === 1;
+                    return true;
+                });
+            }
+
+            // Status filter
+            const statusVal = statusFilter.value;
+            if (statusVal !== 'all') {
+                filtered = filtered.filter(g => (g.status || 'Pending Review') === statusVal);
+            }
+
+            // Sort
+            const sortVal = sortSelect.value;
+            filtered.sort((a, b) => {
+                if (sortVal === 'risk_score') {
+                    return (parseInt(b.risk_score || 0)) - (parseInt(a.risk_score || 0));
+                } else if (sortVal === 'department') {
+                    return (a.department || 'ZZZ').localeCompare(b.department || 'ZZZ');
+                } else {
+                    const timeA = new Date(a.created_at || a.timestamp || 0).getTime();
+                    const timeB = new Date(b.created_at || b.timestamp || 0).getTime();
+                    return timeB - timeA;
+                }
+            });
+
+            return filtered;
+        }
+
+        function renderGrievances() {
+            grievancesList.innerHTML = '';
+            
+            const filtered = filterAndSort();
+
+            if (filtered.length === 0) {
+                listStatus.textContent = allGrievances.length === 0 ? 
+                    '📭 No grievances found' : 
+                    '🔍 No matches for current filters';
+                listStatus.classList.remove('hidden');
+                updateStats();
+                return;
+            }
+
+            listStatus.classList.add('hidden');
+
+            filtered.forEach(g => {
+                const tokenId = g.token_id || 'N/A';
+                const text = g.grievance_text || 'No description';
+                const dept = g.department || 'Unassigned';
+                const risk = parseInt(g.risk_score || 1);
+                const status = g.status || 'Pending Review';
+                const action = g.ai_suggested_action || 'No action';
+                const notes = g.admin_notes || '';
+                const timestamp = g.created_at || g.timestamp;
+                const dateStr = timestamp ? new Date(timestamp).toLocaleString('en-IN') : 'N/A';
+
+                const riskClass = getRiskClass(risk);
+                const riskColor = getRiskColor(risk);
+                const statusBadge = getStatusBadge(status);
+
+                const item = document.createElement('div');
+                item.className = `p-5 rounded-xl ${riskClass} transition hover:shadow-xl`;
+                item.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-sm text-gray-600">📅 ${escapeHtml(dateStr)}</span>
+                        <span class="${statusBadge}">${escapeHtml(status)}</span>
+                    </div>
+
+                    <p class="text-gray-900 font-semibold mb-3 text-base">${escapeHtml(text)}</p>
+
+                    <!-- AI RECOMMENDATION BOX (THIS IS THE KEY ADDITION!) -->
+                    <div class="ai-box text-white p-4 rounded-lg mb-3 shadow-md">
+                        <div class="flex items-start">
+                            <span class="text-3xl mr-3">🤖</span>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm mb-1">AI Recommended Action:</p>
+                                <p class="text-sm italic">${escapeHtml(action)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${notes ? `
+                    <div class="bg-gray-100 border-l-4 border-gray-500 p-3 mb-3 rounded">
+                        <p class="text-sm"><strong class="text-gray-700">Admin Notes:</strong> ${escapeHtml(notes)}</p>
+                    </div>
+                    ` : ''}
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm border-t border-gray-200 pt-3 mb-3">
+                        <div>
+                            <span class="text-gray-600 block mb-1">Token ID</span>
+                            <span class="font-mono text-xs bg-white px-2 py-1 rounded">${escapeHtml(tokenId)}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 block mb-1">Department</span>
+                            <span class="font-bold text-indigo-700">${escapeHtml(dept)}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 block mb-1">Risk Score</span>
+                            <span class="font-bold text-xl ${riskColor}">${risk}/5</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 block mb-1">Submitted By</span>
+                            <span class="text-gray-800 text-xs">${escapeHtml(g.submitted_by_email || 'Anonymous')}</span>
+                        </div>
+                    </div>
+
+                    <button 
+                        onclick="openStatusModal('${tokenId}', '${status}', \`${escapeHtml(text).replace(/`/g, '\\`')}\`)"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition shadow-md">
+                        📝 Update Status & Add Notes
+                    </button>
+                `;
+                grievancesList.appendChild(item);
+            });
+
+            updateStats();
+        }
+
+        // ========== FETCH ==========
+
+        async function fetchGrievances() {
+            if (!authToken) {
+                listStatus.textContent = '❌ Enter token first';
+                return;
+            }
+
+            refreshBtn.disabled = true;
+            document.getElementById('refresh-icon').classList.add('animate-spin');
+            document.getElementById('refresh-text').textContent = 'Loading...';
+            listStatus.textContent = '⏳ Fetching...';
+            listStatus.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${SERVICE_URL}/grievances`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+                allGrievances = await response.json();
+                renderGrievances();
+
+            } catch (error) {
+                listStatus.textContent = `❌ Error: ${error.message}`;
+                console.error('Fetch error:', error);
+            } finally {
+                refreshBtn.disabled = false;
+                document.getElementById('refresh-icon').classList.remove('animate-spin');
+                document.getElementById('refresh-text').textContent = 'Refresh';
+            }
+        }
+
+        // ========== EVENTS ==========
+
+        tokenInput.addEventListener('input', updateAuthStatus);
+        refreshBtn.addEventListener('click', fetchGrievances);
+        statusFilter.addEventListener('change', renderGrievances);
+        riskFilter.addEventListener('change', renderGrievances);
+        sortSelect.addEventListener('change', renderGrievances);
+        modalSave.addEventListener('click', saveStatus);
+        modalCancel.addEventListener('click', closeModal);
+        statusModal.addEventListener('click', (e) => {
+            if (e.target === statusModal) closeModal();
+        });
+
+        // Initialize
+        updateAuthStatus();
+    </script>
+</body>
+</html>
